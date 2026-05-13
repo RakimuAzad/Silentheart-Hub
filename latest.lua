@@ -1,5 +1,43 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- ===== CONFIG SYSTEM SETUP =====
+local configFolder = "silentheart"
+local configFolderPath = configFolder
+local activeConfigFile = configFolder .. "/active_config.txt"
+
+-- Create folder if it doesn't exist
+if not isfolder(configFolderPath) then
+    makefolder(configFolderPath)
+end
+
+-- Function to get all config files
+local function getConfigList()
+    local configs = {}
+    if isfolder(configFolderPath) then
+        local files = listfiles(configFolderPath)
+        for _, file in ipairs(files) do
+            local fileName = file:match("([^/]+)$")
+            if fileName ~= "active_config.txt" and fileName:match("%.json$") then
+                table.insert(configs, fileName:gsub("%.json$", ""))
+            end
+        end
+    end
+    return configs
+end
+
+-- Function to get active config
+local function getActiveConfig()
+    if isfile(activeConfigFile) then
+        return readfile(activeConfigFile):gsub("\n", "")
+    end
+    return nil
+end
+
+-- Function to set active config
+local function setActiveConfig(configName)
+    writefile(activeConfigFile, configName)
+end
+
 local Window = Rayfield:CreateWindow({
     Name = "Silentheart Hub",
     LoadingTitle = "Talking to Dreadstar...",
@@ -49,6 +87,7 @@ Window.ModifyTheme({
 local CombatTab = Window:CreateTab("Combat", 0)
 local ProgressionTab = Window:CreateTab("Progression", 0)
 local MiscTab = Window:CreateTab("Misc", 0)
+local ConfigTab = Window:CreateTab("Config", 0)
 
 Rayfield:Notify({
     Title = "Connection Established",
@@ -262,6 +301,220 @@ MiscTab:CreateButton({
     end,
 })
 
+-- ===== CONFIG TAB =====
+
+ConfigTab:CreateLabel("Configuration Management")
+
+local configNameInput = ConfigTab:CreateInput({
+    Name = "Config Name",
+    PlaceholderText = "Enter config name...",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Value)
+        -- This will be used when saving
+    end,
+})
+
+ConfigTab:CreateButton({
+    Name = "Save Config",
+    Callback = function()
+        local configName = configNameInput.Value
+        if configName == "" or configName == nil then
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "Please enter a config name!",
+                Duration = 3,
+                Image = 4483345998,
+            })
+            return
+        end
+
+        -- Create config data table
+        local configData = {
+            weaponQTE = weaponQTEOn,
+            selectedWeapon = selectedWeapon,
+            dodge = dodgeOn,
+            autoBlock = autoBlockOn,
+            autoAttack = autoAttackOn,
+            selectedSkills = selectedSkills,
+        }
+
+        -- Save to file
+        local filePath = configFolderPath .. "/" .. configName .. ".json"
+        writefile(filePath, game:GetService("HttpService"):JSONEncode(configData))
+        
+        -- Set as active config
+        setActiveConfig(configName)
+        
+        -- Update dropdown
+        updateConfigDropdown()
+
+        Rayfield:Notify({
+            Title = "Success",
+            Content = "Config '" .. configName .. "' saved!",
+            Duration = 3,
+            Image = 4483345998,
+        })
+    end,
+})
+
+ConfigTab:CreateButton({
+    Name = "Delete Config",
+    Callback = function()
+        local configName = configNameInput.Value
+        if configName == "" or configName == nil then
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "Please enter a config name!",
+                Duration = 3,
+                Image = 4483345998,
+            })
+            return
+        end
+
+        local filePath = configFolderPath .. "/" .. configName .. ".json"
+        if isfile(filePath) then
+            delfile(filePath)
+            Rayfield:Notify({
+                Title = "Success",
+                Content = "Config '" .. configName .. "' deleted!",
+                Duration = 3,
+                Image = 4483345998,
+            })
+            updateConfigDropdown()
+        else
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "Config not found!",
+                Duration = 3,
+                Image = 4483345998,
+            })
+        end
+    end,
+})
+
+ConfigTab:CreateDivider()
+
+ConfigTab:CreateLabel("Select & Load Config")
+
+-- Config dropdown
+local configDropdown = ConfigTab:CreateDropdown({
+    Name = "Available Configs",
+    Options = getConfigList(),
+    CurrentOption = {getActiveConfig() or "None"},
+    MultipleOptions = false,
+    Flag = "ConfigDropdown",
+    Callback = function(Options)
+        -- Will be called when config is selected
+    end,
+})
+
+-- Function to update dropdown options
+function updateConfigDropdown()
+    configDropdown:Refresh(getConfigList())
+end
+
+ConfigTab:CreateButton({
+    Name = "Load Selected Config",
+    Callback = function()
+        local selectedConfig = configDropdown.Value[1]
+        if selectedConfig == nil or selectedConfig == "None" then
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "Please select a config to load!",
+                Duration = 3,
+                Image = 4483345998,
+            })
+            return
+        end
+
+        local filePath = configFolderPath .. "/" .. selectedConfig .. ".json"
+        if isfile(filePath) then
+            local fileContent = readfile(filePath)
+            local configData = game:GetService("HttpService"):JSONDecode(fileContent)
+
+            -- Load config values
+            weaponQTEOn = configData.weaponQTE or false
+            selectedWeapon = configData.selectedWeapon or "Dagger"
+            dodgeOn = configData.dodge or false
+            autoBlockOn = configData.autoBlock or false
+            autoAttackOn = configData.autoAttack or false
+            selectedSkills = configData.selectedSkills or {"Strike"}
+
+            -- Update UI
+            WeaponQTEToggle:Set(weaponQTEOn)
+            WeaponDropdown:Set(selectedWeapon)
+            DodgeToggle:Set(dodgeOn)
+            AutoBlockToggle:Set(autoBlockOn)
+            AutoAttackToggle:Set(autoAttackOn)
+            SkillSelector:Set(selectedSkills)
+
+            -- Set as active config
+            setActiveConfig(selectedConfig)
+
+            Rayfield:Notify({
+                Title = "Success",
+                Content = "Config '" .. selectedConfig .. "' loaded!",
+                Duration = 3,
+                Image = 4483345998,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "Config file not found!",
+                Duration = 3,
+                Image = 4483345998,
+            })
+        end
+    end,
+})
+
+ConfigTab:CreateButton({
+    Name = "Auto Load Active Config",
+    Callback = function()
+        local activeConfig = getActiveConfig()
+        if activeConfig and activeConfig ~= "" then
+            local filePath = configFolderPath .. "/" .. activeConfig .. ".json"
+            if isfile(filePath) then
+                local fileContent = readfile(filePath)
+                local configData = game:GetService("HttpService"):JSONDecode(fileContent)
+
+                -- Load config values
+                weaponQTEOn = configData.weaponQTE or false
+                selectedWeapon = configData.selectedWeapon or "Dagger"
+                dodgeOn = configData.dodge or false
+                autoBlockOn = configData.autoBlock or false
+                autoAttackOn = configData.autoAttack or false
+                selectedSkills = configData.selectedSkills or {"Strike"}
+
+                -- Update UI
+                WeaponQTEToggle:Set(weaponQTEOn)
+                WeaponDropdown:Set(selectedWeapon)
+                DodgeToggle:Set(dodgeOn)
+                AutoBlockToggle:Set(autoBlockOn)
+                AutoAttackToggle:Set(autoAttackOn)
+                SkillSelector:Set(selectedSkills)
+
+                -- Update dropdown to show active config
+                configDropdown:Set(activeConfig)
+
+                Rayfield:Notify({
+                    Title = "Success",
+                    Content = "Active config '" .. activeConfig .. "' loaded!",
+                    Duration = 3,
+                    Image = 4483345998,
+                })
+            end
+        else
+            Rayfield:Notify({
+                Title = "Info",
+                Content = "No active config set yet!",
+                Duration = 3,
+                Image = 4483345998,
+            })
+        end
+    end,
+})
+
 -- ===== SCRIPT PERSISTENCE (THE RIGHT WAY) =====
 local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport)
 local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
@@ -427,3 +680,37 @@ coroutine.wrap(function()
         task.wait(1)
     end
 end)()
+
+-- ===== AUTO-LOAD ACTIVE CONFIG ON STARTUP =====
+task.spawn(function()
+    task.wait(1) -- Give the UI time to fully load
+    local activeConfig = getActiveConfig()
+    if activeConfig and activeConfig ~= "" then
+        local filePath = configFolderPath .. "/" .. activeConfig .. ".json"
+        if isfile(filePath) then
+            local fileContent = readfile(filePath)
+            local configData = game:GetService("HttpService"):JSONDecode(fileContent)
+
+            -- Load config values
+            weaponQTEOn = configData.weaponQTE or false
+            selectedWeapon = configData.selectedWeapon or "Dagger"
+            dodgeOn = configData.dodge or false
+            autoBlockOn = configData.autoBlock or false
+            autoAttackOn = configData.autoAttack or false
+            selectedSkills = configData.selectedSkills or {"Strike"}
+
+            -- Update UI
+            WeaponQTEToggle:Set(weaponQTEOn)
+            WeaponDropdown:Set(selectedWeapon)
+            DodgeToggle:Set(dodgeOn)
+            AutoBlockToggle:Set(autoBlockOn)
+            AutoAttackToggle:Set(autoAttackOn)
+            SkillSelector:Set(selectedSkills)
+
+            -- Update dropdown to show active config
+            configDropdown:Set(activeConfig)
+
+            print("Auto-loaded config: " .. activeConfig)
+        end
+    end
+end)
