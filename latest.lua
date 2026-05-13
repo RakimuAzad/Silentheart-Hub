@@ -172,16 +172,59 @@ ProgressionTab:CreateButton({
 MiscTab:CreateLabel("Server Management")
 
 MiscTab:CreateButton({
-    Name = "Server Hop",
+    Name = "Random Server Hop",
     Callback = function()
         local HttpService = game:GetService("HttpService")
         local TeleportService = game:GetService("TeleportService")
         local Players = game:GetService("Players")
 
-        local function ServerHop()
+        local function RandomServerHop()
             local PlaceId = game.PlaceId
             local JobId = game.JobId
-            -- API URL to get public servers, sorted by ascending player count
+            -- API URL to get public servers
+            local ApiUrl = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+
+            local Success, Result = pcall(function()
+                return game:HttpGet(ApiUrl)
+            end)
+
+            if Success then
+                local Decoded = HttpService:JSONDecode(Result)
+                if Decoded and Decoded.data and #Decoded.data > 0 then
+                    -- Get a random server from the list
+                    local randomServer = Decoded.data[math.random(1, #Decoded.data)]
+                    
+                    -- Make sure it's not full and not your current server
+                    if randomServer.playing < randomServer.maxPlayers and randomServer.id ~= JobId then
+                        print("Found random server! Teleporting to: " .. randomServer.id)
+                        TeleportService:TeleportToPlaceInstance(PlaceId, randomServer.id, Players.LocalPlayer)
+                        return
+                    else
+                        print("Random server was full or current server, trying another...")
+                        RandomServerHop()
+                    end
+                end
+            else
+                warn("Failed to fetch server list: " .. tostring(Result))
+            end
+        end
+
+        -- Run the function
+        RandomServerHop()
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "Small Server Hop",
+    Callback = function()
+        local HttpService = game:GetService("HttpService")
+        local TeleportService = game:GetService("TeleportService")
+        local Players = game:GetService("Players")
+
+        local function SmallServerHop()
+            local PlaceId = game.PlaceId
+            local JobId = game.JobId
+            -- API URL to get public servers, sorted by ascending player count (smallest first)
             local ApiUrl = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
 
             local Success, Result = pcall(function()
@@ -194,7 +237,7 @@ MiscTab:CreateButton({
                     for _, server in ipairs(Decoded.data) do
                         -- Check if server is not full and is not your current server
                         if server.playing < server.maxPlayers and server.id ~= JobId then
-                            print("Found server! Teleporting to: " .. server.id)
+                            print("Found small server! Teleporting to: " .. server.id .. " (" .. server.playing .. "/" .. server.maxPlayers .. ")")
                             TeleportService:TeleportToPlaceInstance(PlaceId, server.id, Players.LocalPlayer)
                             return
                         end
@@ -206,7 +249,7 @@ MiscTab:CreateButton({
         end
 
         -- Run the function
-        ServerHop()
+        SmallServerHop()
     end,
 })
 
@@ -232,20 +275,21 @@ local function persist()
     end
 end
 
--- Hook into teleportation
+-- Hook into teleportation using metatable
 local TeleportService = game:GetService("TeleportService")
-local oldTeleport = TeleportService.Teleport
-local oldTeleportToPlaceInstance = TeleportService.TeleportToPlaceInstance
+local mt = getrawmetatable(TeleportService)
+local oldNamecall = mt.__namecall
+setreadonly(mt, false)
 
-TeleportService.Teleport = function(self, ...)
-    persist()
-    return oldTeleport(self, ...)
-end
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if self == TeleportService and (method == "Teleport" or method == "TeleportToPlaceInstance" or method == "TeleportPartyAsync") then
+        persist()
+    end
+    return oldNamecall(self, ...)
+end)
 
-TeleportService.TeleportToPlaceInstance = function(self, ...)
-    persist()
-    return oldTeleportToPlaceInstance(self, ...)
-end
+setreadonly(mt, true)
 
 -- CAPTURE SKILLS FROM UPDATESKILLS EVENT
 game.ReplicatedStorage.Remotes.Information.UpdateSkills.OnClientEvent:Connect(function(skillList)
