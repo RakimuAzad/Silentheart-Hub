@@ -445,13 +445,14 @@ ConfigTab:CreateButton({
             autoAttackOn = configData.autoAttack or false
             selectedSkills = configData.selectedSkills or {"Strike"}
 
-            -- Update UI
+            -- Update UI - use the callback approach
             WeaponQTEToggle:Set(weaponQTEOn)
-            WeaponDropdown:Set(selectedWeapon)
+            WeaponDropdown:Set({selectedWeapon})
             DodgeToggle:Set(dodgeOn)
             AutoBlockToggle:Set(autoBlockOn)
             AutoAttackToggle:Set(autoAttackOn)
             SkillSelector:Set(selectedSkills)
+            SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
 
             -- Set as active config
             setActiveConfig(selectedConfig)
@@ -491,16 +492,17 @@ ConfigTab:CreateButton({
                 autoAttackOn = configData.autoAttack or false
                 selectedSkills = configData.selectedSkills or {"Strike"}
 
-                -- Update UI
+                -- Update UI - use the callback approach
                 WeaponQTEToggle:Set(weaponQTEOn)
-                WeaponDropdown:Set(selectedWeapon)
+                WeaponDropdown:Set({selectedWeapon})
                 DodgeToggle:Set(dodgeOn)
                 AutoBlockToggle:Set(autoBlockOn)
                 AutoAttackToggle:Set(autoAttackOn)
                 SkillSelector:Set(selectedSkills)
+                SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
 
                 -- Update dropdown to show active config
-                configDropdown:Set(activeConfig)
+                configDropdown:Set({activeConfig})
 
                 Rayfield:Notify({
                     Title = "Success",
@@ -704,16 +706,17 @@ task.spawn(function()
             autoAttackOn = configData.autoAttack or false
             selectedSkills = configData.selectedSkills or {"Strike"}
 
-            -- Update UI
+            -- Update UI - use the callback approach
             WeaponQTEToggle:Set(weaponQTEOn)
-            WeaponDropdown:Set(selectedWeapon)
+            WeaponDropdown:Set({selectedWeapon})
             DodgeToggle:Set(dodgeOn)
             AutoBlockToggle:Set(autoBlockOn)
             AutoAttackToggle:Set(autoAttackOn)
             SkillSelector:Set(selectedSkills)
+            SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
 
             -- Update dropdown to show active config
-            configDropdown:Set(activeConfig)
+            configDropdown:Set({activeConfig})
 
             print("Auto-loaded config: " .. activeConfig)
         end
