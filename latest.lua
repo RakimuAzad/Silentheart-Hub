@@ -220,39 +220,38 @@ MiscTab:CreateButton({
 })
 
 -- ===== SCRIPT PERSISTENCE =====
--- This code ensures the script reloads on server/place changes
-local TeleportService = game:GetService("TeleportService")
-local LocalPlayer = game.Players.LocalPlayer
-
 -- Store the script URL
 local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
 
--- Function to reload the script after teleport
-local function PersistScript()
-    TeleportService.LocalPlayerTeleportedSignal:Connect(function(placeId, character)
-        -- Give it a moment for the game to load
+-- Hook into TeleportService to persist the script
+local TeleportService = game:GetService("TeleportService")
+local oldTeleport = TeleportService.Teleport
+local oldTeleportToPlaceInstance = TeleportService.TeleportToPlaceInstance
+local oldTeleportPartyAsync = TeleportService.TeleportPartyAsync
+
+function TeleportService:Teleport(placeId, player)
+    task.spawn(function()
         task.wait(2)
-        
-        -- Reload the script
         loadstring(game:HttpGet(scriptUrl))()
     end)
+    return oldTeleport(self, placeId, player)
 end
 
--- Alternative method: Using RunService to detect place changes
-local RunService = game:GetService("RunService")
-local currentPlaceId = game.PlaceId
-
-game:GetService("RunService").Heartbeat:Connect(function()
-    if game.PlaceId ~= currentPlaceId then
-        currentPlaceId = game.PlaceId
-        
-        -- Wait for the place to fully load
-        task.wait(3)
-        
-        -- Reload the script
+function TeleportService:TeleportToPlaceInstance(placeId, instanceId, player)
+    task.spawn(function()
+        task.wait(2)
         loadstring(game:HttpGet(scriptUrl))()
-    end
-end)
+    end)
+    return oldTeleportToPlaceInstance(self, placeId, instanceId, player)
+end
+
+function TeleportService:TeleportPartyAsync(placeId, instanceId, players)
+    task.spawn(function()
+        task.wait(2)
+        loadstring(game:HttpGet(scriptUrl))()
+    end)
+    return oldTeleportPartyAsync(self, placeId, instanceId, players)
+end
 
 -- CAPTURE SKILLS FROM UPDATESKILLS EVENT
 game.ReplicatedStorage.Remotes.Information.UpdateSkills.OnClientEvent:Connect(function(skillList)
