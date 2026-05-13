@@ -3,17 +3,17 @@ local TeleportService = game:GetService("TeleportService")
 local teleportData = TeleportService:GetTeleportSetting("SilentheartAutoRun")
 
 if teleportData then
-    -- Clear it so it doesn't loop infinitely if you manually stop it later
     TeleportService:SetTeleportSetting("SilentheartAutoRun", nil)
-    -- Run the script again (using the cache-buster trick to avoid caching issues)
     loadstring(game:HttpGet('https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua?t='..os.time()))()
+    return -- STOP this current execution so the loadstring version takes over
 end
 
+-- Everything below here only runs if the check above didn't find anything
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "Silentheart Hub",
-    LoadingTitle = "Vowing to the Dreadstar...",
+    LoadingTitle = "Talking to Dreadstar...",
     LoadingSubtitle = "Stay safe.",
     ConfigurationSaving = {
         Enabled = false,
@@ -234,23 +234,23 @@ MiscTab:CreateButton({
 local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
 
 local function SaveAndTeleport()
-    game:GetService("TeleportService"):SetTeleportSetting("SilentheartAutoRun", scriptUrl)
+    TeleportService:SetTeleportSetting("SilentheartAutoRun", scriptUrl)
 end
 
--- Hook into TeleportService to set the persistence flag before teleporting
-local TeleportService = game:GetService("TeleportService")
-local oldTeleport = TeleportService.Teleport
-local oldTeleportToPlaceInstance = TeleportService.TeleportToPlaceInstance
+-- Hooking the functions properly using metatable
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+setreadonly(mt, false)
 
-TeleportService.Teleport = function(self, ...)
-    SaveAndTeleport()
-    return oldTeleport(self, ...)
-end
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if self == TeleportService and (method == "Teleport" or method == "TeleportToPlaceInstance" or method == "TeleportPartyAsync") then
+        SaveAndTeleport()
+    end
+    return oldNamecall(self, ...)
+end)
 
-TeleportService.TeleportToPlaceInstance = function(self, ...)
-    SaveAndTeleport()
-    return oldTeleportToPlaceInstance(self, ...)
-end
+setreadonly(mt, true)
 
 -- CAPTURE SKILLS FROM UPDATESKILLS EVENT
 game.ReplicatedStorage.Remotes.Information.UpdateSkills.OnClientEvent:Connect(function(skillList)
