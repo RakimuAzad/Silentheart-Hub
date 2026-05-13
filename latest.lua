@@ -1,14 +1,3 @@
--- ===== SCRIPT PERSISTENCE CHECK =====
-local TeleportService = game:GetService("TeleportService")
-local teleportData = TeleportService:GetTeleportSetting("SilentheartAutoRun")
-
-if teleportData then
-    TeleportService:SetTeleportSetting("SilentheartAutoRun", nil)
-    loadstring(game:HttpGet('https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua?t='..os.time()))()
-    return -- STOP this current execution so the loadstring version takes over
-end
-
--- Everything below here only runs if the check above didn't find anything
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
@@ -180,49 +169,6 @@ ProgressionTab:CreateButton({
 
 -- ==== MISC TAB ====
 
-MiscTab:CreateLabel("Server Management")
-
-MiscTab:CreateButton({
-    Name = "Server Hop",
-    Callback = function()
-        local HttpService = game:GetService("HttpService")
-        local TeleportService = game:GetService("TeleportService")
-        local Players = game:GetService("Players")
-
-        local function ServerHop()
-            local PlaceId = game.PlaceId
-            local JobId = game.JobId
-            -- API URL to get public servers, sorted by ascending player count
-            local ApiUrl = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-
-            local Success, Result = pcall(function()
-                return game:HttpGet(ApiUrl)
-            end)
-
-            if Success then
-                local Decoded = HttpService:JSONDecode(Result)
-                if Decoded and Decoded.data then
-                    for _, server in ipairs(Decoded.data) do
-                        -- Check if server is not full and is not your current server
-                        if server.playing < server.maxPlayers and server.id ~= JobId then
-                            print("Found server! Teleporting to: " .. server.id)
-                            TeleportService:TeleportToPlaceInstance(PlaceId, server.id, Players.LocalPlayer)
-                            return
-                        end
-                    end
-                end
-            else
-                warn("Failed to fetch server list: " .. tostring(Result))
-            end
-        end
-
-        -- Run the function
-        ServerHop()
-    end,
-})
-
-MiscTab:CreateDivider()
-
 MiscTab:CreateButton({
     Name = "Infinite Yield",
     Callback = function ()
@@ -230,27 +176,9 @@ MiscTab:CreateButton({
     end,
 })
 
--- ===== SCRIPT PERSISTENCE =====
-local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
 
-local function SaveAndTeleport()
-    TeleportService:SetTeleportSetting("SilentheartAutoRun", scriptUrl)
-end
 
--- Hooking the functions properly using metatable
-local mt = getrawmetatable(game)
-local oldNamecall = mt.__namecall
-setreadonly(mt, false)
 
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    if self == TeleportService and (method == "Teleport" or method == "TeleportToPlaceInstance" or method == "TeleportPartyAsync") then
-        SaveAndTeleport()
-    end
-    return oldNamecall(self, ...)
-end)
-
-setreadonly(mt, true)
 
 -- CAPTURE SKILLS FROM UPDATESKILLS EVENT
 game.ReplicatedStorage.Remotes.Information.UpdateSkills.OnClientEvent:Connect(function(skillList)
