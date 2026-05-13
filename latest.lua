@@ -305,19 +305,21 @@ MiscTab:CreateButton({
 
 ConfigTab:CreateLabel("Configuration Management")
 
+local configNameValue = ""
+
 local configNameInput = ConfigTab:CreateInput({
     Name = "Config Name",
     PlaceholderText = "Enter config name...",
     RemoveTextAfterFocusLost = false,
     Callback = function(Value)
-        -- This will be used when saving
+        configNameValue = Value
     end,
 })
 
 ConfigTab:CreateButton({
     Name = "Save Config",
     Callback = function()
-        local configName = configNameInput.Value
+        local configName = configNameValue
         if configName == "" or configName == nil then
             Rayfield:Notify({
                 Title = "Error",
@@ -354,13 +356,15 @@ ConfigTab:CreateButton({
             Duration = 3,
             Image = 4483345998,
         })
+
+        configNameValue = ""
     end,
 })
 
 ConfigTab:CreateButton({
     Name = "Delete Config",
     Callback = function()
-        local configName = configNameInput.Value
+        local configName = configNameValue
         if configName == "" or configName == nil then
             Rayfield:Notify({
                 Title = "Error",
@@ -381,6 +385,7 @@ ConfigTab:CreateButton({
                 Image = 4483345998,
             })
             updateConfigDropdown()
+            configNameValue = ""
         else
             Rayfield:Notify({
                 Title = "Error",
