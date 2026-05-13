@@ -219,44 +219,29 @@ MiscTab:CreateButton({
     end,
 })
 
--- ===== SCRIPT PERSISTENCE (ROBUST VERSION) =====
+-- ===== SCRIPT PERSISTENCE (THE RIGHT WAY) =====
+local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport)
 local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
 
 local function persist()
-    -- Checks for the queue function across different executors
-    local qot = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
-    if qot then
-        qot([[
+    if queueteleport then
+        queueteleport([[
             repeat task.wait() until game:IsLoaded()
-            task.wait(1) 
             loadstring(game:HttpGet(']] .. scriptUrl .. [[?t=]] .. os.time() .. [['))()
         ]])
     end
 end
 
--- This replaces your manual hooks for Teleport and TeleportToPlaceInstance
-local mt = getrawmetatable(game)
-local oldNamecall = mt.__namecall
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local TS = game:GetService("TeleportService")
-    if self == TS and (method:find("Teleport") or method:find("TeleportToPlaceInstance")) then
-        persist()
-    end
-    return oldNamecall(self, ...)
-end)
-
-setreadonly(mt, true)
 -- Hook into teleportation
 local TeleportService = game:GetService("TeleportService")
 local oldTeleport = TeleportService.Teleport
 local oldTeleportToPlaceInstance = TeleportService.TeleportToPlaceInstance
+
 TeleportService.Teleport = function(self, ...)
     persist()
     return oldTeleport(self, ...)
 end
+
 TeleportService.TeleportToPlaceInstance = function(self, ...)
     persist()
     return oldTeleportToPlaceInstance(self, ...)
