@@ -1,8 +1,19 @@
+-- ===== SCRIPT PERSISTENCE CHECK =====
+local TeleportService = game:GetService("TeleportService")
+local teleportData = TeleportService:GetTeleportSetting("SilentheartAutoRun")
+
+if teleportData then
+    -- Clear it so it doesn't loop infinitely if you manually stop it later
+    TeleportService:SetTeleportSetting("SilentheartAutoRun", nil)
+    -- Run the script again (using the cache-buster trick to avoid caching issues)
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua?t='..os.time()))()
+end
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "Silentheart Hub",
-    LoadingTitle = "Becoming Silent",
+    LoadingTitle = "Vowing to the Dreadstar...",
     LoadingSubtitle = "Stay safe.",
     ConfigurationSaving = {
         Enabled = false,
@@ -220,37 +231,25 @@ MiscTab:CreateButton({
 })
 
 -- ===== SCRIPT PERSISTENCE =====
--- Store the script URL
 local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
 
--- Hook into TeleportService to persist the script
+local function SaveAndTeleport()
+    game:GetService("TeleportService"):SetTeleportSetting("SilentheartAutoRun", scriptUrl)
+end
+
+-- Hook into TeleportService to set the persistence flag before teleporting
 local TeleportService = game:GetService("TeleportService")
 local oldTeleport = TeleportService.Teleport
 local oldTeleportToPlaceInstance = TeleportService.TeleportToPlaceInstance
-local oldTeleportPartyAsync = TeleportService.TeleportPartyAsync
 
-function TeleportService:Teleport(placeId, player)
-    task.spawn(function()
-        task.wait(2)
-        loadstring(game:HttpGet(scriptUrl))()
-    end)
-    return oldTeleport(self, placeId, player)
+TeleportService.Teleport = function(self, ...)
+    SaveAndTeleport()
+    return oldTeleport(self, ...)
 end
 
-function TeleportService:TeleportToPlaceInstance(placeId, instanceId, player)
-    task.spawn(function()
-        task.wait(2)
-        loadstring(game:HttpGet(scriptUrl))()
-    end)
-    return oldTeleportToPlaceInstance(self, placeId, instanceId, player)
-end
-
-function TeleportService:TeleportPartyAsync(placeId, instanceId, players)
-    task.spawn(function()
-        task.wait(2)
-        loadstring(game:HttpGet(scriptUrl))()
-    end)
-    return oldTeleportPartyAsync(self, placeId, instanceId, players)
+TeleportService.TeleportToPlaceInstance = function(self, ...)
+    SaveAndTeleport()
+    return oldTeleportToPlaceInstance(self, ...)
 end
 
 -- CAPTURE SKILLS FROM UPDATESKILLS EVENT
