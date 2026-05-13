@@ -169,6 +169,49 @@ ProgressionTab:CreateButton({
 
 -- ==== MISC TAB ====
 
+MiscTab:CreateLabel("Server Management")
+
+MiscTab:CreateButton({
+    Name = "Server Hop",
+    Callback = function()
+        local HttpService = game:GetService("HttpService")
+        local TeleportService = game:GetService("TeleportService")
+        local Players = game:GetService("Players")
+
+        local function ServerHop()
+            local PlaceId = game.PlaceId
+            local JobId = game.JobId
+            -- API URL to get public servers, sorted by ascending player count
+            local ApiUrl = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+
+            local Success, Result = pcall(function()
+                return game:HttpGet(ApiUrl)
+            end)
+
+            if Success then
+                local Decoded = HttpService:JSONDecode(Result)
+                if Decoded and Decoded.data then
+                    for _, server in ipairs(Decoded.data) do
+                        -- Check if server is not full and is not your current server
+                        if server.playing < server.maxPlayers and server.id ~= JobId then
+                            print("Found server! Teleporting to: " .. server.id)
+                            TeleportService:TeleportToPlaceInstance(PlaceId, server.id, Players.LocalPlayer)
+                            return
+                        end
+                    end
+                end
+            else
+                warn("Failed to fetch server list: " .. tostring(Result))
+            end
+        end
+
+        -- Run the function
+        ServerHop()
+    end,
+})
+
+MiscTab:CreateDivider()
+
 MiscTab:CreateButton({
     Name = "Infinite Yield",
     Callback = function ()
@@ -176,9 +219,29 @@ MiscTab:CreateButton({
     end,
 })
 
-
-
-
+-- ===== SCRIPT PERSISTENCE (THE RIGHT WAY) =====
+local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
+local function persist()
+    local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport)
+    if queue_on_teleport then
+        queue_on_teleport([[
+            repeat task.wait() until game:IsLoaded()
+            loadstring(game:HttpGet(']] .. scriptUrl .. [[?t=]] .. os.time() .. [['))()
+        ]])
+    end
+end
+-- Hook into teleportation
+local TeleportService = game:GetService("TeleportService")
+local oldTeleport = TeleportService.Teleport
+local oldTeleportToPlaceInstance = TeleportService.TeleportToPlaceInstance
+TeleportService.Teleport = function(self, ...)
+    persist()
+    return oldTeleport(self, ...)
+end
+TeleportService.TeleportToPlaceInstance = function(self, ...)
+    persist()
+    return oldTeleportToPlaceInstance(self, ...)
+end
 
 -- CAPTURE SKILLS FROM UPDATESKILLS EVENT
 game.ReplicatedStorage.Remotes.Information.UpdateSkills.OnClientEvent:Connect(function(skillList)
