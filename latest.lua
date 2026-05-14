@@ -401,11 +401,11 @@ ConfigTab:CreateDivider()
 
 ConfigTab:CreateLabel("Select & Load Config")
 
--- Config dropdown
+-- Config dropdown - initialize with empty list, will be populated
 local configDropdown = ConfigTab:CreateDropdown({
     Name = "Available Configs",
-    Options = getConfigList(),
-    CurrentOption = {getActiveConfig() or "None"},
+    Options = {},
+    CurrentOption = {"None"},
     MultipleOptions = false,
     Flag = "ConfigDropdown",
     Callback = function(Options)
@@ -415,8 +415,19 @@ local configDropdown = ConfigTab:CreateDropdown({
 
 -- Function to update dropdown options
 function updateConfigDropdown()
-    configDropdown:Refresh(getConfigList())
+    local configs = getConfigList()
+    if #configs == 0 then
+        configDropdown:Refresh({"None"})
+    else
+        configDropdown:Refresh(configs)
+    end
 end
+
+-- Refresh the dropdown on startup to show available configs
+task.spawn(function()
+    task.wait(0.5)
+    updateConfigDropdown()
+end)
 
 ConfigTab:CreateButton({
     Name = "Load Selected Config",
@@ -445,17 +456,24 @@ ConfigTab:CreateButton({
             autoAttackOn = configData.autoAttack or false
             selectedSkills = configData.selectedSkills or {"Strike"}
 
-            -- Update UI - use the callback approach
-            WeaponQTEToggle:Set(weaponQTEOn)
-            WeaponDropdown:Set({selectedWeapon})
-            DodgeToggle:Set(dodgeOn)
-            AutoBlockToggle:Set(autoBlockOn)
-            AutoAttackToggle:Set(autoAttackOn)
-            SkillSelector:Set(selectedSkills)
+            -- Manually trigger the toggles
+            WeaponQTEToggle:SetValue(weaponQTEOn)
+            DodgeToggle:SetValue(dodgeOn)
+            AutoBlockToggle:SetValue(autoBlockOn)
+            AutoAttackToggle:SetValue(autoAttackOn)
+            
+            -- Manually set the dropdowns
+            WeaponDropdown:SetValue({selectedWeapon})
+            SkillSelector:SetValue(selectedSkills)
+            
+            -- Update label
             SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
 
             -- Set as active config
             setActiveConfig(selectedConfig)
+            
+            -- Refresh dropdown to show correct active config
+            updateConfigDropdown()
 
             Rayfield:Notify({
                 Title = "Success",
@@ -492,17 +510,21 @@ ConfigTab:CreateButton({
                 autoAttackOn = configData.autoAttack or false
                 selectedSkills = configData.selectedSkills or {"Strike"}
 
-                -- Update UI - use the callback approach
-                WeaponQTEToggle:Set(weaponQTEOn)
-                WeaponDropdown:Set({selectedWeapon})
-                DodgeToggle:Set(dodgeOn)
-                AutoBlockToggle:Set(autoBlockOn)
-                AutoAttackToggle:Set(autoAttackOn)
-                SkillSelector:Set(selectedSkills)
+                -- Manually trigger the toggles
+                WeaponQTEToggle:SetValue(weaponQTEOn)
+                DodgeToggle:SetValue(dodgeOn)
+                AutoBlockToggle:SetValue(autoBlockOn)
+                AutoAttackToggle:SetValue(autoAttackOn)
+                
+                -- Manually set the dropdowns
+                WeaponDropdown:SetValue({selectedWeapon})
+                SkillSelector:SetValue(selectedSkills)
+                
+                -- Update label
                 SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
 
                 -- Update dropdown to show active config
-                configDropdown:Set({activeConfig})
+                configDropdown:SetValue({activeConfig})
 
                 Rayfield:Notify({
                     Title = "Success",
@@ -691,6 +713,10 @@ end)()
 -- ===== AUTO-LOAD ACTIVE CONFIG ON STARTUP =====
 task.spawn(function()
     task.wait(1) -- Give the UI time to fully load
+    
+    -- First refresh the dropdown to show available configs
+    updateConfigDropdown()
+    
     local activeConfig = getActiveConfig()
     if activeConfig and activeConfig ~= "" then
         local filePath = configFolderPath .. "/" .. activeConfig .. ".json"
@@ -706,17 +732,21 @@ task.spawn(function()
             autoAttackOn = configData.autoAttack or false
             selectedSkills = configData.selectedSkills or {"Strike"}
 
-            -- Update UI - use the callback approach
-            WeaponQTEToggle:Set(weaponQTEOn)
-            WeaponDropdown:Set({selectedWeapon})
-            DodgeToggle:Set(dodgeOn)
-            AutoBlockToggle:Set(autoBlockOn)
-            AutoAttackToggle:Set(autoAttackOn)
-            SkillSelector:Set(selectedSkills)
+            -- Manually trigger the toggles
+            WeaponQTEToggle:SetValue(weaponQTEOn)
+            DodgeToggle:SetValue(dodgeOn)
+            AutoBlockToggle:SetValue(autoBlockOn)
+            AutoAttackToggle:SetValue(autoAttackOn)
+            
+            -- Manually set the dropdowns
+            WeaponDropdown:SetValue({selectedWeapon})
+            SkillSelector:SetValue(selectedSkills)
+            
+            -- Update label
             SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
 
             -- Update dropdown to show active config
-            configDropdown:Set({activeConfig})
+            configDropdown:SetValue({activeConfig})
 
             print("Auto-loaded config: " .. activeConfig)
         end
