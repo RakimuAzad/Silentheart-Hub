@@ -115,15 +115,20 @@ local Constants = require(game.ReplicatedStorage.Constants)
 local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
 local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
 
+print("Persistence Check - queue_on_teleport available:", queueteleport ~= nil)
+if queueteleport then
+    print("Queue teleport function found!")
+end
+
 local function persist()
     if queueteleport then
         queueteleport([[
             repeat task.wait() until game:IsLoaded()
             loadstring(game:HttpGet(']] .. scriptUrl .. [[?t=]] .. os.time() .. [['))()
         ]])
-        print("Script persistence queued for teleport")
+        print("[Silentheart] Script persistence queued for teleport")
     else
-        print("Warning: queue_on_teleport not available")
+        print("[Silentheart] WARNING: queue_on_teleport not available!")
     end
 end
 
@@ -498,16 +503,6 @@ ConfigTab:CreateButton({
             autoAttackOn = configData.autoAttack or false
             selectedSkills = configData.selectedSkills or {"Strike"}
 
-            -- Manually trigger the toggles
-            WeaponQTEToggle:SetValue(weaponQTEOn)
-            DodgeToggle:SetValue(dodgeOn)
-            AutoBlockToggle:SetValue(autoBlockOn)
-            AutoAttackToggle:SetValue(autoAttackOn)
-            
-            -- Manually set the dropdowns
-            WeaponDropdown:SetValue({selectedWeapon})
-            SkillSelector:SetValue(selectedSkills)
-            
             -- Update label
             SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
 
@@ -552,21 +547,8 @@ ConfigTab:CreateButton({
                 autoAttackOn = configData.autoAttack or false
                 selectedSkills = configData.selectedSkills or {"Strike"}
 
-                -- Manually trigger the toggles
-                WeaponQTEToggle:SetValue(weaponQTEOn)
-                DodgeToggle:SetValue(dodgeOn)
-                AutoBlockToggle:SetValue(autoBlockOn)
-                AutoAttackToggle:SetValue(autoAttackOn)
-                
-                -- Manually set the dropdowns
-                WeaponDropdown:SetValue({selectedWeapon})
-                SkillSelector:SetValue(selectedSkills)
-                
                 -- Update label
                 SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
-
-                -- Update dropdown to show active config
-                configDropdown:SetValue({activeConfig})
 
                 Rayfield:Notify({
                     Title = "Success",
@@ -652,10 +634,21 @@ end
 coroutine.wrap(function()
     while true do
         if weaponQTEOn then
-            local remoteName = selectedWeapon .. "QTE"
-            local infoRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5):WaitForChild("Information", 5):WaitForChild("RemoteFunction", 5)
-            if infoRemote then
-                infoRemote:FireServer(true, remoteName)
+            local success, err = pcall(function()
+                local remoteName = selectedWeapon .. "QTE"
+                local infoRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+                if infoRemote then
+                    infoRemote = infoRemote:FindFirstChild("Information")
+                    if infoRemote then
+                        infoRemote = infoRemote:FindFirstChild("RemoteFunction")
+                        if infoRemote then
+                            infoRemote:FireServer(true, remoteName)
+                        end
+                    end
+                end
+            end)
+            if not success then
+                print("QTE Error:", err)
             end
         end
         task.wait(1.5)
@@ -666,9 +659,20 @@ end)()
 coroutine.wrap(function()
     while true do
         if dodgeOn then
-            local infoRemote = game:GetService("ReplicatedStorage").Remotes.Information.RemoteFunction
-            if infoRemote then
-                infoRemote:FireServer({true, true}, "DodgeMinigame")
+            local success, err = pcall(function()
+                local infoRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+                if infoRemote then
+                    infoRemote = infoRemote:FindFirstChild("Information")
+                    if infoRemote then
+                        infoRemote = infoRemote:FindFirstChild("RemoteFunction")
+                        if infoRemote then
+                            infoRemote:FireServer({true, true}, "DodgeMinigame")
+                        end
+                    end
+                end
+            end)
+            if not success then
+                print("Dodge Error:", err)
             end
         end
         task.wait(0.001)
@@ -679,9 +683,20 @@ end)()
 coroutine.wrap(function()
     while true do
         if autoBlockOn then
-            local infoRemote = game:GetService("ReplicatedStorage").Remotes.Information.RemoteFunction
-            if infoRemote then
-                infoRemote:FireServer({true, false}, "DodgeMinigame")
+            local success, err = pcall(function()
+                local infoRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+                if infoRemote then
+                    infoRemote = infoRemote:FindFirstChild("Information")
+                    if infoRemote then
+                        infoRemote = infoRemote:FindFirstChild("RemoteFunction")
+                        if infoRemote then
+                            infoRemote:FireServer({true, false}, "DodgeMinigame")
+                        end
+                    end
+                end
+            end)
+            if not success then
+                print("AutoBlock Error:", err)
             end
         end
         task.wait(0.001)
@@ -745,21 +760,8 @@ task.spawn(function()
             autoAttackOn = configData.autoAttack or false
             selectedSkills = configData.selectedSkills or {"Strike"}
 
-            -- Manually trigger the toggles
-            WeaponQTEToggle:SetValue(weaponQTEOn)
-            DodgeToggle:SetValue(dodgeOn)
-            AutoBlockToggle:SetValue(autoBlockOn)
-            AutoAttackToggle:SetValue(autoAttackOn)
-            
-            -- Manually set the dropdowns
-            WeaponDropdown:SetValue({selectedWeapon})
-            SkillSelector:SetValue(selectedSkills)
-            
             -- Update label
             SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
-
-            -- Update dropdown to show active config
-            configDropdown:SetValue({activeConfig})
 
             print("Auto-loaded config: " .. activeConfig)
         end
