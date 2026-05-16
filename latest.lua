@@ -16,9 +16,13 @@ local function getConfigList()
     if isfolder(configFolderPath) then
         local files = listfiles(configFolderPath)
         for _, file in ipairs(files) do
-            local fileName = file:match("([^/]+)$")
-            if fileName ~= "active_config.txt" and fileName:match("%.json$") then
-                table.insert(configs, fileName:gsub("%.json$", ""))
+            -- Extract just the filename from the full path (handle both / and \)
+            local fileName = file:gsub("\\", "/"):match("([^/]+)$")
+            if fileName and fileName ~= "active_config.txt" and fileName:match("%.json$") then
+                local configName = fileName:gsub("%.json$", "")
+                if configName ~= "" then
+                    table.insert(configs, configName)
+                end
             end
         end
     end
@@ -106,6 +110,38 @@ Rayfield:Notify({
 
 local Player = game.Players.LocalPlayer
 local Constants = require(game.ReplicatedStorage.Constants)
+
+-- ===== SCRIPT PERSISTENCE (THE RIGHT WAY) =====
+local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
+
+local function persist()
+    if queueteleport then
+        queueteleport([[
+            repeat task.wait() until game:IsLoaded()
+            loadstring(game:HttpGet(']] .. scriptUrl .. [[?t=]] .. os.time() .. [['))()
+        ]])
+        print("Script persistence queued for teleport")
+    else
+        print("Warning: queue_on_teleport not available")
+    end
+end
+
+-- Hook into teleportation using metatable
+local TeleportService = game:GetService("TeleportService")
+local mt = getrawmetatable(TeleportService)
+local oldNamecall = mt.__namecall
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if self == TeleportService and (method == "Teleport" or method == "TeleportToPlaceInstance" or method == "TeleportPartyAsync") then
+        persist()
+    end
+    return oldNamecall(self, ...)
+end)
+
+setreadonly(mt, true)
 
 local weaponQTEOn = false
 local dodgeOn = false
@@ -213,6 +249,9 @@ MiscTab:CreateLabel("Server Management")
 MiscTab:CreateButton({
     Name = "Random Server Hop",
     Callback = function()
+        -- Queue persistence before hopping
+        persist()
+        
         local HttpService = game:GetService("HttpService")
         local TeleportService = game:GetService("TeleportService")
         local Players = game:GetService("Players")
@@ -256,6 +295,9 @@ MiscTab:CreateButton({
 MiscTab:CreateButton({
     Name = "Small Server Hop",
     Callback = function()
+        -- Queue persistence before hopping
+        persist()
+        
         local HttpService = game:GetService("HttpService")
         local TeleportService = game:GetService("TeleportService")
         local Players = game:GetService("Players")
@@ -543,35 +585,6 @@ ConfigTab:CreateButton({
         end
     end,
 })
-
--- ===== SCRIPT PERSISTENCE (THE RIGHT WAY) =====
-local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport)
-local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
-
-local function persist()
-    if queueteleport then
-        queueteleport([[
-            repeat task.wait() until game:IsLoaded()
-            loadstring(game:HttpGet(']] .. scriptUrl .. [[?t=]] .. os.time() .. [['))()
-        ]])
-    end
-end
-
--- Hook into teleportation using metatable
-local TeleportService = game:GetService("TeleportService")
-local mt = getrawmetatable(TeleportService)
-local oldNamecall = mt.__namecall
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    if self == TeleportService and (method == "Teleport" or method == "TeleportToPlaceInstance" or method == "TeleportPartyAsync") then
-        persist()
-    end
-    return oldNamecall(self, ...)
-end)
-
-setreadonly(mt, true)
 
 -- CAPTURE SKILLS FROM UPDATESKILLS EVENT
 game.ReplicatedStorage.Remotes.Information.UpdateSkills.OnClientEvent:Connect(function(skillList)
