@@ -16,7 +16,6 @@ local function getConfigList()
     if isfolder(configFolderPath) then
         local files = listfiles(configFolderPath)
         for _, file in ipairs(files) do
-            -- Extract just the filename from the full path (handle both / and \)
             local fileName = file:gsub("\\", "/"):match("([^/]+)$")
             if fileName and fileName ~= "active_config.txt" and fileName:match("%.json$") then
                 local configName = fileName:gsub("%.json$", "")
@@ -110,43 +109,6 @@ Rayfield:Notify({
 
 local Player = game.Players.LocalPlayer
 local Constants = require(game.ReplicatedStorage.Constants)
-
--- ===== SCRIPT PERSISTENCE (THE RIGHT WAY) =====
-local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
-local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
-
-print("Persistence Check - queue_on_teleport available:", queueteleport ~= nil)
-if queueteleport then
-    print("Queue teleport function found!")
-end
-
-local function persist()
-    if queueteleport then
-        queueteleport([[
-            repeat task.wait() until game:IsLoaded()
-            loadstring(game:HttpGet(']] .. scriptUrl .. [[?t=]] .. os.time() .. [['))()
-        ]])
-        print("[Silentheart] Script persistence queued for teleport")
-    else
-        print("[Silentheart] WARNING: queue_on_teleport not available!")
-    end
-end
-
--- Hook into teleportation using metatable
-local TeleportService = game:GetService("TeleportService")
-local mt = getrawmetatable(TeleportService)
-local oldNamecall = mt.__namecall
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    if self == TeleportService and (method == "Teleport" or method == "TeleportToPlaceInstance" or method == "TeleportPartyAsync") then
-        persist()
-    end
-    return oldNamecall(self, ...)
-end)
-
-setreadonly(mt, true)
 
 local weaponQTEOn = false
 local dodgeOn = false
@@ -254,9 +216,6 @@ MiscTab:CreateLabel("Server Management")
 MiscTab:CreateButton({
     Name = "Random Server Hop",
     Callback = function()
-        -- Queue persistence before hopping
-        persist()
-        
         local HttpService = game:GetService("HttpService")
         local TeleportService = game:GetService("TeleportService")
         local Players = game:GetService("Players")
@@ -264,7 +223,6 @@ MiscTab:CreateButton({
         local function RandomServerHop()
             local PlaceId = game.PlaceId
             local JobId = game.JobId
-            -- API URL to get public servers
             local ApiUrl = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
 
             local Success, Result = pcall(function()
@@ -274,10 +232,7 @@ MiscTab:CreateButton({
             if Success then
                 local Decoded = HttpService:JSONDecode(Result)
                 if Decoded and Decoded.data and #Decoded.data > 0 then
-                    -- Get a random server from the list
                     local randomServer = Decoded.data[math.random(1, #Decoded.data)]
-                    
-                    -- Make sure it's not full and not your current server
                     if randomServer.playing < randomServer.maxPlayers and randomServer.id ~= JobId then
                         print("Found random server! Teleporting to: " .. randomServer.id)
                         TeleportService:TeleportToPlaceInstance(PlaceId, randomServer.id, Players.LocalPlayer)
@@ -292,7 +247,6 @@ MiscTab:CreateButton({
             end
         end
 
-        -- Run the function
         RandomServerHop()
     end,
 })
@@ -300,9 +254,6 @@ MiscTab:CreateButton({
 MiscTab:CreateButton({
     Name = "Small Server Hop",
     Callback = function()
-        -- Queue persistence before hopping
-        persist()
-        
         local HttpService = game:GetService("HttpService")
         local TeleportService = game:GetService("TeleportService")
         local Players = game:GetService("Players")
@@ -310,7 +261,6 @@ MiscTab:CreateButton({
         local function SmallServerHop()
             local PlaceId = game.PlaceId
             local JobId = game.JobId
-            -- API URL to get public servers, sorted by ascending player count (smallest first)
             local ApiUrl = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
 
             local Success, Result = pcall(function()
@@ -321,7 +271,6 @@ MiscTab:CreateButton({
                 local Decoded = HttpService:JSONDecode(Result)
                 if Decoded and Decoded.data then
                     for _, server in ipairs(Decoded.data) do
-                        -- Check if server is not full and is not your current server
                         if server.playing < server.maxPlayers and server.id ~= JobId then
                             print("Found small server! Teleporting to: " .. server.id .. " (" .. server.playing .. "/" .. server.maxPlayers .. ")")
                             TeleportService:TeleportToPlaceInstance(PlaceId, server.id, Players.LocalPlayer)
@@ -334,7 +283,6 @@ MiscTab:CreateButton({
             end
         end
 
-        -- Run the function
         SmallServerHop()
     end,
 })
@@ -347,6 +295,32 @@ MiscTab:CreateButton({
         loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()    
     end,
 })
+
+-- ===== SCRIPT PERSISTENCE (THE RIGHT WAY) =====
+local queueteleport = queue_on_teleport or (syn and syn.queue_on_teleport)
+local scriptUrl = "https://raw.githubusercontent.com/RakimuAzad/Silentheart-Hub/main/latest.lua"
+
+local function persist()
+    if queueteleport then
+        queueteleport([[
+            repeat task.wait() until game:IsLoaded()
+            loadstring(game:HttpGet(']] .. scriptUrl .. [[?t=]] .. os.time() .. [['))()
+        ]])
+    end
+end
+
+-- Hook into teleportation
+local TeleportService = game:GetService("TeleportService")
+local oldTeleport = TeleportService.Teleport
+local oldTeleportToPlaceInstance = TeleportService.TeleportToPlaceInstance
+TeleportService.Teleport = function(self, ...)
+    persist()
+    return oldTeleport(self, ...)
+end
+TeleportService.TeleportToPlaceInstance = function(self, ...)
+    persist()
+    return oldTeleportToPlaceInstance(self, ...)
+end
 
 -- ===== CONFIG TAB =====
 
@@ -377,7 +351,6 @@ ConfigTab:CreateButton({
             return
         end
 
-        -- Create config data table
         local configData = {
             weaponQTE = weaponQTEOn,
             selectedWeapon = selectedWeapon,
@@ -387,14 +360,10 @@ ConfigTab:CreateButton({
             selectedSkills = selectedSkills,
         }
 
-        -- Save to file
         local filePath = configFolderPath .. "/" .. configName .. ".json"
         writefile(filePath, game:GetService("HttpService"):JSONEncode(configData))
         
-        -- Set as active config
         setActiveConfig(configName)
-        
-        -- Update dropdown
         updateConfigDropdown()
 
         Rayfield:Notify({
@@ -448,7 +417,6 @@ ConfigTab:CreateDivider()
 
 ConfigTab:CreateLabel("Select & Load Config")
 
--- Config dropdown - initialize with empty list, will be populated
 local configDropdown = ConfigTab:CreateDropdown({
     Name = "Available Configs",
     Options = {},
@@ -456,11 +424,9 @@ local configDropdown = ConfigTab:CreateDropdown({
     MultipleOptions = false,
     Flag = "ConfigDropdown",
     Callback = function(Options)
-        -- Will be called when config is selected
     end,
 })
 
--- Function to update dropdown options
 function updateConfigDropdown()
     local configs = getConfigList()
     if #configs == 0 then
@@ -470,7 +436,6 @@ function updateConfigDropdown()
     end
 end
 
--- Refresh the dropdown on startup to show available configs
 task.spawn(function()
     task.wait(0.5)
     updateConfigDropdown()
@@ -495,7 +460,6 @@ ConfigTab:CreateButton({
             local fileContent = readfile(filePath)
             local configData = game:GetService("HttpService"):JSONDecode(fileContent)
 
-            -- Load config values
             weaponQTEOn = configData.weaponQTE or false
             selectedWeapon = configData.selectedWeapon or "Dagger"
             dodgeOn = configData.dodge or false
@@ -503,13 +467,8 @@ ConfigTab:CreateButton({
             autoAttackOn = configData.autoAttack or false
             selectedSkills = configData.selectedSkills or {"Strike"}
 
-            -- Update label
             SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
-
-            -- Set as active config
             setActiveConfig(selectedConfig)
-            
-            -- Refresh dropdown to show correct active config
             updateConfigDropdown()
 
             Rayfield:Notify({
@@ -539,7 +498,6 @@ ConfigTab:CreateButton({
                 local fileContent = readfile(filePath)
                 local configData = game:GetService("HttpService"):JSONDecode(fileContent)
 
-                -- Load config values
                 weaponQTEOn = configData.weaponQTE or false
                 selectedWeapon = configData.selectedWeapon or "Dagger"
                 dodgeOn = configData.dodge or false
@@ -547,7 +505,6 @@ ConfigTab:CreateButton({
                 autoAttackOn = configData.autoAttack or false
                 selectedSkills = configData.selectedSkills or {"Strike"}
 
-                -- Update label
                 SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
 
                 Rayfield:Notify({
@@ -601,7 +558,7 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(0.1) -- Update every 0.1 seconds for fast response
+        task.wait(0.1)
     end
 end)
 
@@ -621,7 +578,6 @@ local function getUsableSkills()
         local cost = getSkillCost(skill)
         local cd = skillCooldowns[skill] or 0
         
-        -- Check if we have enough energy and skill is off cooldown
         if currentEnergy >= cost and cd <= 0 then
             table.insert(usable, skill)
         end
@@ -634,21 +590,10 @@ end
 coroutine.wrap(function()
     while true do
         if weaponQTEOn then
-            local success, err = pcall(function()
-                local remoteName = selectedWeapon .. "QTE"
-                local infoRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-                if infoRemote then
-                    infoRemote = infoRemote:FindFirstChild("Information")
-                    if infoRemote then
-                        infoRemote = infoRemote:FindFirstChild("RemoteFunction")
-                        if infoRemote then
-                            infoRemote:FireServer(true, remoteName)
-                        end
-                    end
-                end
-            end)
-            if not success then
-                print("QTE Error:", err)
+            local remoteName = selectedWeapon .. "QTE"
+            local infoRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5):WaitForChild("Information", 5):WaitForChild("RemoteFunction", 5)
+            if infoRemote then
+                infoRemote:FireServer(true, remoteName)
             end
         end
         task.wait(1.5)
@@ -659,20 +604,9 @@ end)()
 coroutine.wrap(function()
     while true do
         if dodgeOn then
-            local success, err = pcall(function()
-                local infoRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-                if infoRemote then
-                    infoRemote = infoRemote:FindFirstChild("Information")
-                    if infoRemote then
-                        infoRemote = infoRemote:FindFirstChild("RemoteFunction")
-                        if infoRemote then
-                            infoRemote:FireServer({true, true}, "DodgeMinigame")
-                        end
-                    end
-                end
-            end)
-            if not success then
-                print("Dodge Error:", err)
+            local infoRemote = game:GetService("ReplicatedStorage").Remotes.Information.RemoteFunction
+            if infoRemote then
+                infoRemote:FireServer({true, true}, "DodgeMinigame")
             end
         end
         task.wait(0.001)
@@ -683,20 +617,9 @@ end)()
 coroutine.wrap(function()
     while true do
         if autoBlockOn then
-            local success, err = pcall(function()
-                local infoRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-                if infoRemote then
-                    infoRemote = infoRemote:FindFirstChild("Information")
-                    if infoRemote then
-                        infoRemote = infoRemote:FindFirstChild("RemoteFunction")
-                        if infoRemote then
-                            infoRemote:FireServer({true, false}, "DodgeMinigame")
-                        end
-                    end
-                end
-            end)
-            if not success then
-                print("AutoBlock Error:", err)
+            local infoRemote = game:GetService("ReplicatedStorage").Remotes.Information.RemoteFunction
+            if infoRemote then
+                infoRemote:FireServer({true, false}, "DodgeMinigame")
             end
         end
         task.wait(0.001)
@@ -718,17 +641,14 @@ coroutine.wrap(function()
                 end)
 
                 if success and enemies and #enemies > 0 and attackRemote then
-                    -- Get usable skills
                     local usableSkills = getUsableSkills()
                     
                     if #usableSkills > 0 then
-                        -- Use a random usable skill
                         local skillToUse = usableSkills[math.random(1, #usableSkills)]
                         attackRemote:InvokeServer("Attack", skillToUse, {
                             ["Attacking"] = enemies[1]
                         })
                     else
-                        -- No usable skills, guard instead
                         attackRemote:InvokeServer("Guard", false)
                     end
                 end
@@ -740,9 +660,8 @@ end)()
 
 -- ===== AUTO-LOAD ACTIVE CONFIG ON STARTUP =====
 task.spawn(function()
-    task.wait(1) -- Give the UI time to fully load
+    task.wait(1)
     
-    -- First refresh the dropdown to show available configs
     updateConfigDropdown()
     
     local activeConfig = getActiveConfig()
@@ -752,7 +671,6 @@ task.spawn(function()
             local fileContent = readfile(filePath)
             local configData = game:GetService("HttpService"):JSONDecode(fileContent)
 
-            -- Load config values
             weaponQTEOn = configData.weaponQTE or false
             selectedWeapon = configData.selectedWeapon or "Dagger"
             dodgeOn = configData.dodge or false
@@ -760,7 +678,6 @@ task.spawn(function()
             autoAttackOn = configData.autoAttack or false
             selectedSkills = configData.selectedSkills or {"Strike"}
 
-            -- Update label
             SkillLabel:Set("Selected Skills: " .. table.concat(selectedSkills, ", "))
 
             print("Auto-loaded config: " .. activeConfig)
